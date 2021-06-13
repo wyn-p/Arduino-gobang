@@ -1,0 +1,576 @@
+#include <FastLED.h>
+
+#define RGB_NUM 48
+#define RGB_DATA_PIN 12
+#define RGB_BRITHENESS 10
+#define RGB_MODEL WS2812B
+#define RGB_ORDER GRB
+#define RGB_COLUMN 8
+#define RGB_ROW 6
+#define Wait 300
+#define RB_DATA_PIN 6
+
+CRGB RGB_MODULE[RGB_NUM];
+
+int RECORD[48] = {0};
+int board[6][8] = {0};
+int LOCATION = 0;
+int preLOCATION = 0;
+int CurPlayer = 1;
+
+/*--------------set for check_panel--------------*/
+
+int drLocation = 0;
+
+int Max_counting = 0, Max_temp = 0;
+
+int board_R = RGB_ROW / 2;
+int board_C = RGB_COLUMN / 2;
+int temp_R = 0, temp_C = 0;
+/*--------------set for check_panel--------------*/
+
+void Empty()
+{
+	for (int i = 0; i < 48; i++)
+		RECORD[i] = 0;
+	for (int i = 0; i < 6; i++)
+		for (int r = 0; r < 8; r++)
+			board[i][r] = 0;
+	for (int i = 0; i < 49; i++)
+		RGB_MODULE[i] = 0;
+
+	RGB_MODULE[0] = CRGB::Green;
+	FastLED.show();
+}
+
+void setup()
+{
+	LEDS.addLeds<RGB_MODEL, RGB_DATA_PIN,RGB_ORDER>(RGB_MODULE, RGB_NUM);
+	FastLED.setBrightness(RGB_BRITHENESS);
+
+	pinMode(11, INPUT);
+	pinMode(10, INPUT);
+	pinMode(9, INPUT);
+	pinMode(8, INPUT);
+	pinMode(7, INPUT);
+
+	Empty();
+}
+
+void exRECORD(int location, int player)
+{
+	RECORD[location] = player;
+	for (int i = 0; i < 48; i++)
+	{
+		if (RECORD[i] == 1)
+			RGB_MODULE[i] = CRGB::Yellow;
+		if (RECORD[i] == 2)
+			RGB_MODULE[i] = CRGB::Blue;
+	}
+	FastLED.show();
+}
+
+int PlayerChange(int CurrentPlayer)
+{
+	if (CurrentPlayer == 1)
+		return 2;
+	if (CurrentPlayer == 2)
+		return 1;
+}
+
+/*--------------------------------------------------CHECK--------------------------------------------------*/
+
+void check_Upper_Left()
+{
+	if (board_R - 1 > -1 && board_C - 1 > -1 && board[board_R][board_C] == board[board_R - 1][board_C - 1])
+	{
+		board_R -= 1;
+		board_C -= 1;
+		Max_counting += 1;
+		check_Upper_Left();
+	}
+}
+
+void check_Upper()
+{
+	if (board_R - 1 > -1 && board[board_R][board_C] == board[board_R - 1][board_C])
+	{
+		board_R -= 1;
+		Max_counting += 1;
+		check_Upper();
+	}
+}
+
+void check_Upper_Right()
+{
+	if (board_R - 1 > -1 && board_C + 1 < 8 && board[board_R][board_C] == board[board_R - 1][board_C + 1])
+	{
+		board_R -= 1;
+		board_C += 1;
+		Max_counting += 1;
+		check_Upper_Right();
+	}
+}
+
+void check_Left()
+{
+	if (board_C - 1 > -1 && board[board_R][board_C] == board[board_R][board_C - 1])
+	{
+		board_C -= 1;
+		Max_counting += 1;
+		check_Left();
+	}
+}
+
+void check_Right()
+{
+	if (board_C + 1 < 8 && board[board_R][board_C] == board[board_R][board_C + 1])
+	{
+		board_C += 1;
+		Max_counting += 1;
+		check_Right();
+	}
+}
+
+void check_Bottom_Left()
+{
+	if (board_R + 1 < 6 && board_C - 1 > -1 && board[board_R][board_C] == board[board_R + 1][board_C - 1])
+	{
+		board_R += 1;
+		board_C -= 1;
+		Max_counting += 1;
+		check_Bottom_Left();
+	}
+}
+
+void check_Bottom()
+{
+	if (board_R + 1 < 6 && board[board_R][board_C] == board[board_R + 1][board_C])
+	{
+		board_R += 1;
+		Max_counting += 1;
+		check_Bottom();
+	}
+}
+
+void check_Bottom_Right()
+{
+	if (board_R + 1 < 6 && board_C + 1 < 8 && board[board_R][board_C] == board[board_R + 1][board_C + 1])
+	{
+		board_R += 1;
+		board_C += 1;
+		Max_counting += 1;
+		check_Bottom_Right();
+	}
+}
+
+/*--------------------------------------------------CHECK--------------------------------------------------*/
+
+void WinnerPanel(int winner)
+{
+	Empty();
+	for (int i = 40; i < 48; i++)
+	{
+		if (winner == 1)
+			RGB_MODULE[i] = CRGB::Yellow;
+		else
+			RGB_MODULE[i] = CRGB::Blue;
+	}
+	FastLED.show();
+}
+
+void P1Judge(int location)
+{
+	for (int r = 0; r < RGB_ROW; r++)
+		for (int c = 0; c < RGB_COLUMN; c++)
+		{
+			board[r][c] = RECORD[drLocation];
+			if (drLocation == location)
+			{
+				temp_R = r;
+				temp_C = c;
+			}
+			drLocation++;
+		}
+	drLocation = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Left();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Right();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Right();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Left();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Left();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Right();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Right();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Left();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Left();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Right();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Right();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Left();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+}
+
+void P2Judge(int location)
+{
+	for (int r = 0; r < RGB_ROW; r++)
+		for (int c = 0; c < RGB_COLUMN; c++)
+		{
+			board[r][c] = RECORD[drLocation];
+			if (drLocation == location)
+			{
+				temp_R = r;
+				temp_C = c;
+			}
+			drLocation++;
+		}
+	drLocation = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Left();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Right();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Right();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Left();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Left();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Right();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Right();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Left();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Left();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Right();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Bottom_Right();
+	board_R = temp_R;
+	board_C = temp_C;
+	check_Upper_Left();
+	if (Max_temp < Max_counting)
+	{
+		Max_temp = Max_counting;
+		if (Max_temp == 4)
+			WinnerPanel(board[board_R][board_C]);
+	}
+	Max_counting = 0;
+	Max_temp = 0;
+}
+
+void loop()
+{
+	/*COLLECT*/
+	if (digitalRead(11) == LOW)
+	{
+		if (RECORD[LOCATION] != 0)
+		{
+			RGB_MODULE[LOCATION] = CRGB::Violet;
+			FastLED.show();
+			delay(Wait);
+		}
+		else
+		{
+			exRECORD(LOCATION, CurPlayer);
+			if (CurPlayer == 1)
+				P1Judge(LOCATION);
+			else
+				P2Judge(LOCATION);
+			CurPlayer = PlayerChange(CurPlayer);
+			delay(Wait);
+		}
+	}
+	/*Stage Complete*/
+
+	/*-------------------------------------------------------Direction Control-------------------------------------------------------*/
+	/*Control -Y*/
+	if (digitalRead(8) == LOW)
+		if (LOCATION <= 39)
+		{
+			preLOCATION = LOCATION;
+			LOCATION += 8;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*Control +Y*/
+	if (digitalRead(7) == LOW)
+		if (LOCATION >= 8)
+		{
+			preLOCATION = LOCATION;
+			LOCATION -= 8;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*Control -x*/
+	if (digitalRead(10) == LOW)
+		if (LOCATION != 0 && LOCATION != 8 && LOCATION != 16 && LOCATION != 24 && LOCATION != 32 && LOCATION != 40)
+		{
+			preLOCATION = LOCATION;
+			LOCATION -= 1;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*Control +x*/
+	if (digitalRead(9) == LOW)
+		if (LOCATION != 7 && LOCATION != 15 && LOCATION != 23 && LOCATION != 31 && LOCATION != 39 && LOCATION != 48)
+		{
+			preLOCATION = LOCATION;
+			LOCATION += 1;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*-------------------------------------------------------Direction Control-------------------------------------------------------*/
+}
