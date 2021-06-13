@@ -1,0 +1,341 @@
+#include <FastLED.h>
+
+#define RGB_NUM 48
+#define RGB_DATA_PIN 12
+#define RGB_BRITHENESS 10
+#define RGB_MODEL WS2812B
+#define RGB_ORDER GRB
+#define SATURATION 255
+#define Wait 500
+
+CRGB RGB_MODULE[RGB_NUM];
+
+int RECORD[48] = {0};
+int board[8][6] = {0};
+int LOCATION = 0;
+int preLOCATION = 0;
+int count = 0;
+int CurPlayer = 1;
+int P1Max = 0, P1XMax = 0, P1YMax = 0, P1VMax = 0, P1OMax = 0, P1HMax = 0;
+int P2Max = 0, P2XMax = 0, P2YMax = 0, P2VMax = 0, P2OMax = 0, P2HMax = 0;
+
+/*--------------set for dream--------------*/
+
+int pMax[2] = {0};
+int drLocation = 0;
+int tempMax = 0;
+
+int locationR = 0, locationC = 0;
+/*--------------set for dream--------------*/
+
+void setup()
+{
+	LEDS.addLeds<RGB_MODEL, RGB_DATA_PIN, RGB_ORDER>(RGB_MODULE, RGB_NUM);
+	FastLED.setBrightness(RGB_BRITHENESS);
+
+	pinMode(11, INPUT);
+	pinMode(10, INPUT);
+	pinMode(9, INPUT);
+	pinMode(8, INPUT);
+	pinMode(7, INPUT);
+
+	/*Initial*/
+	RGB_MODULE[LOCATION] = CRGB::Red;
+	FastLED.show();
+	/*Stage Complete*/
+}
+
+void Empty()
+{
+	for (int i = 0; i < 48; i++)
+		RECORD[i] = 0;
+	RGB_MODULE[0] = CRGB::Green;
+	FastLED.show();
+}
+
+void exRECORD(int location, int player)
+{
+	RECORD[location] = player;
+	for (int i = 0; i < 48; i++)
+	{
+		if (RECORD[i] == 1)
+			RGB_MODULE[i] = CRGB::Yellow;
+		if (RECORD[i] == 2)
+			RGB_MODULE[i] = CRGB::Blue;
+	}
+	FastLED.show();
+}
+
+int PlayerChange(int CurrentPlayer)
+{
+	if (CurrentPlayer == 1)
+		return 2;
+	if (CurrentPlayer == 2)
+		return 1;
+}
+
+int check_ObliqueLine(int i, int r, int solidI, int solidR, int player)
+{
+	if (board[solidI][solidR] == board[i][r] && board[i][r] == player && i <= 0 && r <= 0 && i < 8 && r < 6)
+	{
+		tempMax += 1;
+		check_ObliqueLine(i + 1, r + 1, solidI, solidR, player);
+	}
+	if (board[solidI][solidR] != board[i][r] && board[i][r] == player && i <= 0 && r <= 0 && i < 8 && r < 6)
+	{
+		pMax[player - 1] = tempMax;
+		tempMax = 0;
+		check_ObliqueLine(i + 1, r + 1, solidI, solidR, player);
+	}
+	return pMax[player - 1];
+}
+
+int check_VerticalLine(int i, int r, int solidI, int solidR, int player)
+{
+	if (board[solidI][solidR] == board[i][r] && board[i][r] == player && i <= 0 && r <= 0 && i < 8 && r < 6)
+	{
+		tempMax += 1;
+		check_VerticalLine(i + 1, r, solidI, solidR, player);
+	}
+	if (board[solidI][solidR] != board[i][r] && board[i][r] == player && i <= 0 && r <= 0 && i < 8 && r < 6)
+	{
+		pMax[player - 1] = tempMax;
+		tempMax = 0;
+		check_VerticalLine(i + 1, r, solidI, solidR, player);
+	}
+	tempMax = 0;
+	return pMax[player - 1];
+}
+
+void check_VandH(int location)
+{
+	locationR=(location+1)/8;
+	locationC=location-8*locationR;
+}
+
+int check_HorizontalLine(int i, int r, int solidI, int solidR, int player)
+{
+	if (board[solidI][solidR] == board[i][r] && board[i][r] == player && i <= 0 && r <= 0 && i < 8 && r < 6)
+	{
+		tempMax += 1;
+		check_HorizontalLine(i, r + 1, solidI, solidR, player);
+	}
+	if (board[solidI][solidR] != board[i][r] && board[i][r] == player && i <= 0 && r <= 0 && i < 8 && r < 6)
+	{
+		pMax[player - 1] = tempMax;
+		tempMax = 0;
+		check_HorizontalLine(i, r + 1, solidI, solidR, player);
+	}
+	tempMax = 0;
+	return pMax[player - 1];
+}
+
+void WinnerPanel()
+{
+	for (int t = 0; t < 40; t++)
+		for (int j = 0; j < 255; j++)
+		{
+			for (int i = 0; i < RGB_NUM; i++)
+				RGB_MODULE[i] = CHSV(i - (j * 2), SATURATION, RGB_BRITHENESS);
+			FastLED.show();
+			delay(25);
+		}
+}
+
+void P1Judge(int location)
+{
+	for (int i = 0; i < 6; i++)
+		for (int r = 0; r < 8; r++)
+		{
+			board[i][r] = RECORD[drLocation];
+			drLocation++;
+		}
+	drLocation = 0;
+	/*-------X---------*/
+	for (int i = 0; i < 8; i++)
+	{
+		P1OMax = check_ObliqueLine(i, 0, i, 0, 1);
+		P1VMax = check_VerticalLine(i, 0, i, 0, 1);
+		if (P1OMax > P1XMax || P1HMax > P1XMax)
+			P1OMax < P1VMax ? P1XMax = P1VMax : P1XMax = P1OMax;
+		P1OMax = 0;
+		P1VMax = 0;
+	}
+
+	/*--------Y------*/
+	for (int i = 0; i < 6; i++)
+	{
+		P1OMax = check_ObliqueLine(0, i, 0, i, 1);
+		P1HMax = check_HorizontalLine(0, i, 0, i, 1);
+		if (P1OMax > P1XMax || P1HMax > P1XMax)
+			P1OMax < P1HMax ? P1YMax = P1HMax : P1YMax = P1OMax;
+		P1OMax = 0;
+		P1HMax = 0;
+	}
+	P1XMax > P1YMax ? P1Max = P1XMax : P1Max = P1YMax;
+	if (P1Max == 5)
+	{
+		WinnerPanel();
+		Empty();
+	}
+}
+
+void P2Judge(int location)
+{
+	for (int i = 0; i < 8; i++)
+		for (int r = 0; r < 6; r++)
+		{
+			board[i][r] = RECORD[drLocation];
+			drLocation++;
+		}
+	drLocation = 0;
+	for (int i = 0; i < 8; i++)
+	{
+		P2OMax = check_ObliqueLine(i, 0, i, 0, 2);
+		P2VMax = check_VerticalLine(i, 0, i, 0, 2);
+		if (P2OMax > P2XMax || P2HMax > P2XMax)
+			P2OMax < P2VMax ? P2XMax = P2VMax : P2XMax = P2OMax;
+		P2OMax = 0;
+		P2VMax = 0;
+	}
+	for (int i = 0; i < 6; i++)
+	{
+		P2OMax = check_ObliqueLine(0, i, 0, i, 2);
+		P2HMax = check_HorizontalLine(0, i, 0, i, 2);
+		if (P2OMax > P2XMax || P2HMax > P2XMax)
+			P2OMax < P2HMax ? P2YMax = P2HMax : P2YMax = P2OMax;
+		P2OMax = 0;
+		P2HMax = 0;
+	}
+	P2XMax > P2YMax ? P2Max = P2XMax : P2Max = P2YMax;
+	if (P2Max == 5)
+	{
+		WinnerPanel();
+		Empty();
+	}
+}
+
+void loop()
+{
+	/*COLLECT*/
+	if (digitalRead(11) == LOW)
+	{
+		if (RECORD[LOCATION] != 0)
+		{
+			RGB_MODULE[LOCATION] = CRGB::Violet;
+			FastLED.show();
+			delay(Wait);
+		}
+		else
+		{
+			exRECORD(LOCATION, CurPlayer);
+			if (CurPlayer == 1)
+				P1Judge(LOCATION);
+			else
+				P2Judge(LOCATION);
+			CurPlayer = PlayerChange(CurPlayer);
+			delay(Wait);
+		}
+	}
+	/*Stage Complete*/
+
+	/*-------------------------------------------------------Direction Control-------------------------------------------------------*/
+	/*Control -Y*/
+	if (digitalRead(8) == LOW)
+		if (LOCATION <= 39)
+		{
+			preLOCATION = LOCATION;
+			LOCATION += 8;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*Control +Y*/
+	if (digitalRead(7) == LOW)
+		if (LOCATION >= 8)
+		{
+			preLOCATION = LOCATION;
+			LOCATION -= 8;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*Control -x*/
+	if (digitalRead(10) == LOW)
+		if (LOCATION != 0 && LOCATION != 8 && LOCATION != 16 && LOCATION != 24 && LOCATION != 32 && LOCATION != 40)
+		{
+			preLOCATION = LOCATION;
+			LOCATION -= 1;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*Control +x*/
+	if (digitalRead(9) == LOW)
+		if (LOCATION != 7 && LOCATION != 15 && LOCATION != 23 && LOCATION != 31 && LOCATION != 39 && LOCATION != 48)
+		{
+			preLOCATION = LOCATION;
+			LOCATION += 1;
+			if (RECORD[LOCATION] != 0)
+				RGB_MODULE[LOCATION] = CRGB::Purple;
+			else
+				RGB_MODULE[LOCATION] = CRGB::Red;
+			if (RECORD[preLOCATION] != 0)
+			{
+				if (RECORD[preLOCATION] == 1)
+					RGB_MODULE[preLOCATION] = CRGB::Yellow;
+				if (RECORD[preLOCATION] == 2)
+					RGB_MODULE[preLOCATION] = CRGB::Blue;
+			}
+			if (RECORD[preLOCATION] == 0)
+				RGB_MODULE[preLOCATION] = 0;
+			FastLED.show();
+			delay(Wait);
+		}
+	/*Stage Complete*/
+
+	/*-------------------------------------------------------Direction Control-------------------------------------------------------*/
+}
+
