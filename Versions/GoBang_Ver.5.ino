@@ -83,12 +83,12 @@ int PlayerChange(int CurrentPlayer)
 
 /*--------------------------------------------------CHECK--------------------------------------------------*/
 
-void check_Upper_Left()
+void check_Upper_Left()//Check upper left recursively
 {
 	if (board_R - 1 > -1 && board_C - 1 > -1 && board[board_R][board_C] == board[board_R - 1][board_C - 1])
 	{
 		board_R -= 1;
-		board_C -= 1;
+		board_C -= 1;//Replace current 'location' to upper left of previous 'location'
 		Max_counting += 1;
 		check_Upper_Left();
 	}
@@ -199,7 +199,7 @@ void WinnerPanel(int winner)
 	Empty();
 }
 
-void P1Judge(int location)
+void P1Judge(int location)//Variable 'location' is for one-dimensional
 {
 	for (int r = 0; r < RGB_ROW; r++)
 		for (int c = 0; c < RGB_COLUMN; c++)
@@ -210,11 +210,11 @@ void P1Judge(int location)
 				temp_R = r;
 				temp_C = c;
 			}
-			drLocation++;
+			drLocation++;//When drLocation equal location, record 'location' in two-dimensional
 		}
 	drLocation = 0;
 
-	board_R = temp_R;
+	board_R = temp_R;//Check upper left and bottom right of current location, and so on 
 	board_C = temp_C;
 	check_Upper_Left();
 	board_R = temp_R;
@@ -255,7 +255,7 @@ void P1Judge(int location)
 	Max_counting = 0;
 }
 
-void P2Judge(int location)
+void P2Judge(int location)//Refer to the descriptions of P1Judge
 {
 	for (int r = 0; r < RGB_ROW; r++)
 		for (int c = 0; c < RGB_COLUMN; c++)
